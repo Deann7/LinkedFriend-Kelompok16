@@ -9,9 +9,7 @@
 		"lint": "next lint",
 		"mongo:start": "docker-compose up -d mongodb",
 		"mongo:stop": "docker-compose down",
-		"mongo:init": "node init-db.js",
-		"db:seed": "node scripts/seed-db.js",
-		"create:test-account": "node scripts/create-test-account.js"
+		"mongo:init": "node init-db.js"
 	},
 	"dependencies": {
 		"bcryptjs": "^3.0.2",
