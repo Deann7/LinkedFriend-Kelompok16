@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
     // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db();
-    
-    // Find user by id
+      // Find user by id
     const user = await db.collection('users').findOne({ _id: new ObjectId(decoded.userId) });
     
     if (!user) {

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -16,9 +14,7 @@ export default function LoginPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  };  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
@@ -31,20 +27,29 @@ export default function LoginPage() {
         },
         body: JSON.stringify(formData),
       });
-
+      console.log('Response:', res);
+      
       const data = await res.json();
-
+      console.log('Data:', data);
+      
       if (!res.ok) {
         throw new Error(data.message || 'Login failed');
       }
-
-      // Save the token to localStorage or a secure cookie
+        // Save the token to localStorage (for client-side) and cookie (for middleware)
       localStorage.setItem('token', data.token);
+      console.log('Token saved:', data.token);
       
-      // Redirect to dashboard or home page
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message);
+      // Set cookie for middleware authentication
+      document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+      
+      // Use setTimeout to ensure token is saved before redirecting
+      setTimeout(() => {
+        // Redirect to dashboard using window.location for hard navigation
+        window.location.href = '/dashboard';
+      }, 100);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
