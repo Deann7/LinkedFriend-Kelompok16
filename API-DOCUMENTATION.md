@@ -477,6 +477,175 @@ curl -X PATCH http://localhost:3000/api/notifications/read-all \
 }
 ```
 
+## Posts
+
+### Get Posts with Advanced Sorting
+
+```bash
+curl -X GET "http://localhost:3000/api/posts?ids=USER_ID_1&ids=USER_ID_2&sortBy=likes&order=desc" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+Query parameters:
+- `ids`: User IDs to fetch posts for (can provide multiple)
+- `sortBy`: Field to sort by (`date` or `likes`)
+- `order`: Sort order (`asc` or `desc`)
+
+**Response:**
+
+```json
+[
+  {
+    "_id": "POST_ID_1",
+    "content": "This is a post with many likes",
+    "image": "https://example.com/image.jpg",
+    "likes": ["USER_ID_1", "USER_ID_2", "USER_ID_3"],
+    "likesCount": 3,
+    "createdAt": "2023-07-15T14:30:22.123Z",
+    "updatedAt": "2023-07-15T14:30:22.123Z",
+    "author": {
+      "_id": "USER_ID_1",
+      "firstName": "John",
+      "lastName": "Doe",
+      "jobTitle": "Software Engineer",
+      "location": "New York, NY",
+      "email": "john@example.com"
+    }
+  },
+  {
+    "_id": "POST_ID_2",
+    "content": "Another post with fewer likes",
+    "likes": ["USER_ID_1"],
+    "likesCount": 1,
+    "createdAt": "2023-07-16T12:45:33.456Z",
+    "updatedAt": "2023-07-16T12:45:33.456Z",
+    "author": {
+      "_id": "USER_ID_2",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "jobTitle": "Product Manager",
+      "location": "San Francisco, CA",
+      "email": "jane@example.com"
+    }
+  }
+]
+```
+
+### Create New Post
+
+```bash
+curl -X POST http://localhost:3000/api/posts \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "This is my new post content",
+    "image": "https://example.com/image.jpg" 
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "_id": "NEW_POST_ID",
+  "author": "YOUR_USER_ID",
+  "content": "This is my new post content",
+  "image": "https://example.com/image.jpg",
+  "likes": [],
+  "createdAt": "2023-07-17T09:22:45.789Z",
+  "updatedAt": "2023-07-17T09:22:45.789Z"
+}
+```
+
+### Get Single Post
+
+```bash
+curl -X GET http://localhost:3000/api/posts/POST_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+
+```json
+{
+  "_id": "POST_ID",
+  "author": "USER_ID",
+  "content": "This is the post content",
+  "image": "https://example.com/image.jpg",
+  "likes": ["USER_ID_1", "USER_ID_2"],
+  "createdAt": "2023-07-15T14:30:22.123Z",
+  "updatedAt": "2023-07-15T14:30:22.123Z"
+}
+```
+
+### Update Post
+
+```bash
+curl -X PUT http://localhost:3000/api/posts/POST_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Updated post content",
+    "image": "https://example.com/new-image.jpg"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "_id": "POST_ID",
+  "author": "YOUR_USER_ID",
+  "content": "Updated post content",
+  "image": "https://example.com/new-image.jpg",
+  "likes": ["USER_ID_1", "USER_ID_2"],
+  "createdAt": "2023-07-15T14:30:22.123Z",
+  "updatedAt": "2023-07-17T10:15:33.456Z"
+}
+```
+
+### Like/Unlike Post
+
+```bash
+curl -X PATCH http://localhost:3000/api/posts/POST_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "like": true
+  }'
+```
+
+To unlike a post, set `like` to `false`.
+
+**Response:**
+
+```json
+{
+  "_id": "POST_ID",
+  "author": "USER_ID",
+  "content": "This is the post content",
+  "image": "https://example.com/image.jpg",
+  "likes": ["USER_ID_1", "USER_ID_2", "YOUR_USER_ID"],
+  "createdAt": "2023-07-15T14:30:22.123Z",
+  "updatedAt": "2023-07-15T14:30:22.123Z"
+}
+```
+
+### Delete Post
+
+```bash
+curl -X DELETE http://localhost:3000/api/posts/POST_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
 ## Authentication Note
 
 For all API endpoints except `/api/auth/login` and `/api/auth/register`, you must include the JWT token received during login in the Authorization header:
