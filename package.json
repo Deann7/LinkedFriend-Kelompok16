@@ -8,6 +8,9 @@
 		"start": "next start",
 		"lint": "next lint",
 		"mongo:start": "docker-compose up -d mongodb",
+		"redis:start": "docker-compose up -d redis",
+		"services:start": "docker-compose up -d",
+		"services:stop": "docker-compose down",
 		"mongo:stop": "docker-compose down",
 		"mongo:init": "node init-db.js",
 		"db:seed": "node scripts/seed-db.js",
@@ -16,6 +19,7 @@
 	"dependencies": {
 		"bcryptjs": "^3.0.2",
 		"cloudinary": "^2.6.1",
+		"ioredis": "^5.3.2",
 		"jsonwebtoken": "^9.0.2",
 		"mongodb": "^6.16.0",
 		"mongoose": "^8.14.3",
