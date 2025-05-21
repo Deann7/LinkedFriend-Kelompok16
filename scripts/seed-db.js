@@ -203,6 +203,45 @@ const createNotifications = (users, requests) => {
 	return notifications;
 };
 
+// Generate posts for users
+defaultPostContents = [
+	"Excited to join LinkedFriend!",
+	"Looking for new opportunities in tech.",
+	"Just finished a great project!",
+	"Happy to connect with professionals here.",
+	"Exploring new career paths.",
+	"Open to collaborations!",
+	"Sharing my latest achievement.",
+	"Networking is key to success!",
+	"Let's grow together.",
+	"Proud of my team!",
+];
+
+const generatePosts = (users) => {
+	const posts = [];
+	const now = new Date();
+	for (const user of users) {
+		// Setiap user minimal 1 postingan, random 1-2 post
+		const numPosts = 1 + Math.floor(Math.random() * 2);
+		for (let i = 0; i < numPosts; i++) {
+			posts.push({
+				author: user._id,
+				content:
+					defaultPostContents[
+						Math.floor(Math.random() * defaultPostContents.length)
+					],
+				likes: [],
+				createdAt: new Date(
+					now.getTime() -
+						Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)
+				),
+				updatedAt: now,
+			});
+		}
+	}
+	return posts;
+};
+
 // Main function to seed the database
 async function seedDatabase() {
 	let client;
@@ -219,6 +258,7 @@ async function seedDatabase() {
 		await db.collection("users").deleteMany({});
 		await db.collection("friendRequests").deleteMany({});
 		await db.collection("notifications").deleteMany({});
+		await db.collection("posts").deleteMany({});
 
 		console.log("Existing data cleared");
 
@@ -247,6 +287,13 @@ async function seedDatabase() {
 		}
 
 		console.log("Updated users with friend relationships");
+
+		// Generate posts for users
+		const posts = generatePosts(users);
+
+		// Insert posts
+		await db.collection("posts").insertMany(posts);
+		console.log(`Inserted ${posts.length} posts for users`);
 
 		// Generate friend requests
 		const friendRequests = createFriendRequests(users);

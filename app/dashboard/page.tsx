@@ -35,6 +35,15 @@ interface Notification {
 	createdAt: string;
 }
 
+// Tambahkan property image dan imageFile pada state editModal
+type EditModalState = {
+	open: boolean;
+	postId?: string;
+	content?: string;
+	image?: string;
+	imageFile?: File | null;
+};
+
 export default function Dashboard() {
 	const router = useRouter();
 	const [user, setUser] = useState<UserProfile | null>(null);
@@ -73,6 +82,13 @@ export default function Dashboard() {
 	const [networkConnections, setNetworkConnections] = useState<Friend[]>([]);
 	const [isLoadingNetwork, setIsLoadingNetwork] = useState(false);
 	const [networkMessage, setNetworkMessage] = useState<string | null>(null);
+
+	// Posts related states
+	const [posts, setPosts] = useState<any[]>([]);
+	const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+	const [newPostContent, setNewPostContent] = useState("");
+	const [newPostImageFile, setNewPostImageFile] = useState<File | null>(null);
+	const [editModal, setEditModal] = useState<EditModalState>({open: false});
 
 	useEffect(() => {
 		// Check if user is logged in
@@ -137,6 +153,9 @@ export default function Dashboard() {
 		}
 		if (activeTab === "network" && user) {
 			fetchNetworkConnections();
+		}
+		if (activeTab === "feed" && user) {
+			fetchFeedPosts();
 		}
 	}, [activeTab, user]);
 
@@ -486,6 +505,151 @@ export default function Dashboard() {
 		}
 	};
 
+	// Fetch feed posts (1st-3rd degree network)
+	const fetchFeedPosts = async () => {
+		if (!user) return;
+		setIsLoadingPosts(true);
+		try {
+			// Fetch mutual network user IDs from API (assume /api/friends/network returns all 1st-3rd degree user IDs)
+			const token = localStorage.getItem("token");
+			const res = await fetch("/api/friends/network", {
+				headers: {Authorization: `Bearer ${token}`},
+			});
+			const data = await res.json();
+			const ids = [user._id, ...data.connections.map((u: any) => u._id)];
+			// Fetch posts from those user IDs
+			const postsRes = await fetch(
+				`/api/posts?${ids
+					.map((id: string) => `ids=${id}`)
+					.join("&")}`
+			);
+			const postsData = await postsRes.json();
+			setPosts(postsData);
+		} catch (e) {
+			setPosts([]);
+		} finally {
+			setIsLoadingPosts(false);
+		}
+	};
+
+	// Create new post
+	const handleCreatePost = async () => {
+		if (!newPostContent.trim() && !newPostImageFile) return;
+		let imageUrl = "";
+		try {
+			if (newPostImageFile) {
+				const formData = new FormData();
+				formData.append("file", newPostImageFile);
+				const res = await fetch("/api/posts/upload", {
+					method: "POST",
+					body: formData,
+				});
+				if (!res.ok) throw new Error("Gagal upload gambar");
+				const data = await res.json();
+				imageUrl = data.url;
+			}
+		} catch (err: any) {
+			alert("Gagal upload gambar: " + err.message);
+			return;
+		}
+		const token = localStorage.getItem("token");
+		await fetch("/api/posts", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify(imageUrl ? { content: newPostContent, image: imageUrl } : { content: newPostContent }),
+		});
+		setNewPostContent("");
+		setNewPostImageFile(null);
+		fetchFeedPosts();
+	};
+
+	// Like/unlike post
+	const handleLikePost = async (postId: string, liked: boolean) => {
+		// Optimistic update: update UI langsung
+		setPosts(prevPosts => prevPosts.map(post => {
+			if (post._id !== postId) return post;
+			let newLikes = post.likes || [];
+			if (liked) {
+				// Unlike
+				newLikes = newLikes.filter((id: string) => id !== user!._id);
+			} else {
+				// Like
+				newLikes = [...newLikes, user!._id];
+			}
+			return { ...post, likes: newLikes };
+		}));
+		// Sync ke server
+		const token = localStorage.getItem("token");
+		const res = await fetch(`/api/posts/${postId}`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ like: !liked }),
+		});
+		if (!res.ok) {
+			// Rollback jika gagal
+			setPosts(prevPosts => prevPosts.map(post => {
+				if (post._id !== postId) return post;
+				let newLikes = post.likes || [];
+				if (!liked) {
+					// Like gagal, hapus like
+					newLikes = newLikes.filter((id: string) => id !== user!._id);
+				} else {
+					// Unlike gagal, tambahkan like kembali
+					newLikes = [...newLikes, user!._id];
+				}
+				return { ...post, likes: newLikes };
+			}));
+			alert("Gagal update like. Silakan coba lagi.");
+		}
+	};
+
+	// Edit post
+	const handleEditPost = async (postId: string, content: string, imageFile?: File | null) => {
+		let imageUrl = undefined;
+		try {
+			if (imageFile) {
+				const formData = new FormData();
+				formData.append("file", imageFile);
+				const res = await fetch("/api/posts/upload", {
+					method: "POST",
+					body: formData,
+				});
+				if (!res.ok) throw new Error("Gagal upload gambar");
+				const data = await res.json();
+				imageUrl = data.url;
+			}
+		} catch (err: any) {
+			alert("Gagal upload gambar: " + err.message);
+			return;
+		}
+		const token = localStorage.getItem("token");
+		await fetch(`/api/posts/${postId}`, {
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify(imageUrl ? { content, image: imageUrl } : { content }),
+		});
+		fetchFeedPosts();
+	};
+
+	// Delete post
+	const handleDeletePost = async (postId: string) => {
+		const token = localStorage.getItem("token");
+		await fetch(`/api/posts/${postId}`, {
+			method: "DELETE",
+			headers: { Authorization: `Bearer ${token}` },
+		});
+		fetchFeedPosts();
+	};
+
 	if (isLoading) {
 		return (
 			<div className="flex h-screen justify-center items-center">
@@ -763,6 +927,16 @@ export default function Dashboard() {
 									}`}
 								>
 									Network
+								</button>
+								<button
+									onClick={() => setActiveTab("feed")}
+									className={`w-1/5 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+										activeTab === "feed"
+											? "border-blue-500 text-blue-600"
+											: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+									}`}
+								>
+									Feed
 								</button>
 							</nav>
 						</div>
@@ -1492,6 +1666,164 @@ export default function Dashboard() {
 									)}
 								</div>
 							)}
+
+							{/* Feed Tab */}
+							{activeTab === "feed" && (
+								<div>
+									<h3 className="text-lg font-medium text-gray-900 mb-4">
+										Your Feed
+									</h3>
+
+									{/* Create Post */}
+									<div className="mb-6 bg-white p-6 rounded-lg shadow flex items-start space-x-4">
+										<div className="flex-shrink-0">
+											<div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">
+												{user?.firstName.charAt(0)}{user?.lastName.charAt(0)}
+											</div>
+										</div>
+										<div className="flex-1">
+											<textarea
+												className="w-full border border-gray-300 rounded-md p-3 mb-2 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+												rows={3}
+												placeholder="Start a post, share your thoughts..."
+												value={newPostContent}
+												onChange={e => setNewPostContent(e.target.value)}
+											/>
+											{/* Tambahkan input file dan preview pada create post */}
+											<input
+												type="file"
+												accept="image/*"
+												className="w-full border border-gray-300 rounded-md p-2 mb-2"
+												onChange={e => setNewPostImageFile(e.target.files?.[0] || null)}
+											/>
+											{newPostImageFile && (
+												<div className="mb-2 flex justify-center">
+													<img
+														src={URL.createObjectURL(newPostImageFile)}
+														alt="Preview"
+														className="max-h-40 rounded border"
+													/>
+												</div>
+											)}
+											<div className="flex justify-end">
+												<button
+													onClick={handleCreatePost}
+													disabled={!newPostContent.trim()}
+													className="px-6 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
+												>
+													Post
+												</button>
+											</div>
+										</div>
+									</div>
+									{/* Feed List */}
+									{isLoadingPosts ? (
+										<div className="text-center py-6">Loading feed...</div>
+									) : posts.length === 0 ? (
+										<div className="text-center py-6 text-gray-500">No posts to show.</div>
+									) : (
+										<div className="space-y-8">
+											{posts.map(post => (
+												<div key={post._id} className="bg-white rounded-xl shadow-lg p-6 max-w-xl mx-auto border border-gray-200">
+													<div className="flex items-start mb-3">
+														<div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center text-2xl font-bold text-blue-700 mr-4">
+															{post.author?.firstName?.charAt(0)}{post.author?.lastName?.charAt(0)}
+														</div>
+														<div className="flex-1">
+															<div className="font-semibold text-lg text-gray-900">{post.author?.firstName} {post.author?.lastName}</div>
+															<div className="text-sm text-gray-500">
+																{post.author?.jobTitle}
+																{post.author?.location ? ` • ${post.author.location}` : ""}
+															</div>
+															<div className="text-xs text-gray-400 mt-0.5">{new Date(post.createdAt).toLocaleString()}</div>
+														</div>
+													</div>
+													<div className="mb-3 text-gray-900 text-[15px] whitespace-pre-line" style={{lineHeight:'1.6'}}>{post.content}</div>
+													{post.image && (
+														<div className="mb-4 flex justify-center">
+															<img
+																src={post.image}
+																alt="Post Image"
+																className="rounded-lg max-h-96 w-full object-cover border"
+																style={{maxWidth:'100%', objectFit:'cover'}}
+															/>
+														</div>
+													)}
+													<div className="flex items-center space-x-4 mt-2">
+														<button
+															onClick={() => handleLikePost(post._id, post.likes?.includes(user!._id))}
+															className={`flex items-center px-4 py-2 rounded-full font-medium text-base transition border ${post.likes?.includes(user!._id) ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'}`}
+														>
+															<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" /></svg>
+															Like {post.likes?.length || 0}
+														</button>
+														{post.author?._id === user!._id && (
+															<span className="flex space-x-2">
+																<button
+																	onClick={() => setEditModal({open: true, postId: post._id, content: post.content, image: post.image, imageFile: null})}
+																	className="px-4 py-2 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200 font-medium text-base hover:bg-yellow-100 transition"
+																>
+																	Edit
+																</button>
+																<button
+																	onClick={() => handleDeletePost(post._id)}
+																	className="px-4 py-2 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium text-base hover:bg-red-100 transition"
+																>
+																	Delete
+																</button>
+															</span>
+														)}
+													</div>
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+							)}
+
+							{/* Edit Post Modal */}
+							{editModal.open && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/20">
+    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+      <h2 className="text-lg font-semibold mb-4">Edit Post</h2>
+      <textarea
+        className="w-full border border-gray-300 rounded-md p-3 mb-2 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+        rows={3}
+        value={editModal.content}
+        onChange={e => setEditModal(m => ({...m, content: e.target.value}))}
+      />
+      {/* Tambahkan input file dan preview pada modal edit post */}
+      <input
+        type="file"
+        accept="image/*"
+        className="w-full border border-gray-300 rounded-md p-2 mb-2"
+        onChange={e => setEditModal(m => ({...m, imageFile: e.target.files?.[0] || null}))}
+      />
+      {(editModal.imageFile || editModal.image) && (
+        <div className="mb-2 flex justify-center">
+          <img
+            src={editModal.imageFile ? URL.createObjectURL(editModal.imageFile) : editModal.image}
+            alt="Preview"
+            className="max-h-40 rounded border"
+          />
+        </div>
+      )}
+      <div className="flex justify-end space-x-2">
+        <button
+          className="px-4 py-2 rounded bg-gray-200 text-gray-700"
+          onClick={() => setEditModal({open: false})}
+        >Cancel</button>
+        <button
+          className="px-4 py-2 rounded bg-blue-600 text-white"
+          onClick={async () => {
+            await handleEditPost(editModal.postId!, editModal.content || '');
+            setEditModal({open: false});
+          }}
+        >Save</button>
+      </div>
+    </div>
+  </div>
+)}
 						</div>
 					</div>
 				</div>

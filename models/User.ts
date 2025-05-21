@@ -1,19 +1,27 @@
-import {ObjectId} from "mongodb";
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-export interface User {
-	_id?: ObjectId;
-	email: string;
-	password: string; // Note: In a real app, this would be hashed
-	firstName: string;
-	lastName: string;
-	location: string;
-	jobTitle: string;
-	friends: ObjectId[];
-	createdAt: Date;
-	updatedAt: Date;
+export interface IUser extends Document {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  location: string;
+  jobTitle: string;
+  friends: Types.ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface UserLoginCredentials {
-	email: string;
-	password: string;
-}
+const UserSchema = new Schema<IUser>({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
+  location: { type: String },
+  jobTitle: { type: String },
+  friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

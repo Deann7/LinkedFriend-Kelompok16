@@ -1,4 +1,5 @@
 import {MongoClient} from "mongodb";
+import mongoose from 'mongoose';
 
 // Default to a local connection if CONNECTION_STRING is not defined
 const uri =
@@ -45,3 +46,10 @@ if (process.env.NODE_ENV === "development") {
 // Export a module-scoped MongoClient promise. By doing this in a
 // separate module, the client can be shared across functions.
 export default clientPromise;
+
+export async function dbConnect() {
+  if (mongoose.connection.readyState >= 1) return;
+  const uri = process.env.CONNECTION_STRING ||
+    'mongodb://admin:password@localhost:27017/linkedfriend?authSource=admin';
+  await mongoose.connect(uri);
+}
