@@ -30,10 +30,18 @@ export async function GET(request: NextRequest) {
     
     // Try to get user profile from Redis cache
     const cachedUser = await redis.get(cacheKey);
-    
-    if (cachedUser) {
+      if (cachedUser) {
       console.log('Profile cache hit');
-      return NextResponse.json({ success: true, user: JSON.parse(cachedUser), cached: true });
+      return NextResponse.json(
+        { success: true, user: JSON.parse(cachedUser), cached: true },
+        { 
+          headers: {
+            'X-Cache-Status': 'HIT',
+            'X-Cache-Source': 'redis',
+            'Cache-Control': 'max-age=3600'
+          }
+        }
+      );
     }
     
     console.log('Profile cache miss - fetching from database');
@@ -57,11 +65,19 @@ export async function GET(request: NextRequest) {
       location: user.location,
       jobTitle: user.jobTitle
     };
-    
-    // Store user profile in Redis cache
+      // Store user profile in Redis cache
     await redis.set(cacheKey, JSON.stringify(userToReturn), 'EX', CACHE_TTL.PROFILE);
 
-    return NextResponse.json({ success: true, user: userToReturn });
+    return NextResponse.json(
+      { success: true, user: userToReturn, cached: false },
+      { 
+        headers: {
+          'X-Cache-Status': 'MISS',
+          'X-Cache-Source': 'database',
+          'Cache-Control': 'no-cache'
+        }
+      }
+    );
   } catch (error) {
     console.error('Profile error:', error);
     return NextResponse.json({ success: false, message: 'Failed to fetch profile' }, { status: 500 });

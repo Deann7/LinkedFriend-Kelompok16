@@ -2,9 +2,9 @@
 
 A social networking application built with Next.js and MongoDB.
 
-## Setup with Local MongoDB (Docker)
+## Setup with Local MongoDB and Redis (Docker)
 
-This application is configured to use a local MongoDB instance running in Docker.
+This application is configured to use local MongoDB and Redis instances running in Docker.
 
 ### Prerequisites
 
@@ -14,19 +14,34 @@ This application is configured to use a local MongoDB instance running in Docker
 
 ### Setup Instructions
 
-1. **Start MongoDB Container**
+1. **Start All Services (MongoDB and Redis)**
 
     ```bash
-    # Start the MongoDB container
-    npm run mongo:start
+    # Start both MongoDB and Redis containers
+    npm run services:start
     ```
 
-    This will start a MongoDB container with the following configuration:
+    Or start services individually:
 
-    - Port: 27017 (default MongoDB port)
-    - Username: admin
-    - Password: password
-    - Database: linkedfriend
+    ```bash
+    # Start only the MongoDB container
+    npm run mongo:start
+
+    # Start only the Redis container
+    npm run redis:start
+    ```
+
+    This will start:
+    
+    - A MongoDB container with the following configuration:
+      - Port: 27017 (default MongoDB port)
+      - Username: admin
+      - Password: password
+      - Database: linkedfriend
+
+    - A Redis container with the following configuration:
+      - Port: 6379 (default Redis port)
+      - No password authentication (development setup)
 
 2. **Initialize the Database**
 
@@ -44,15 +59,23 @@ This application is configured to use a local MongoDB instance running in Docker
 
     The application will be available at [http://localhost:3000](http://localhost:3000)
 
-4. **Stop MongoDB Container (when done)**
+4. **Stop All Containers (when done)**
 
     ```bash
-    # Stop the MongoDB container
+    # Stop all containers (MongoDB and Redis)
+    npm run services:stop
+    ```
+
+    Or stop MongoDB only:
+
+    ```bash
+    # Stop only the MongoDB container
     npm run mongo:stop
     ```
 
-## MongoDB Connection Details
+## Connection Details
 
+### MongoDB
 -   **Connection String**: `mongodb://admin:password@localhost:27017/linkedfriend?authSource=admin`
 -   **Database**: linkedfriend
 -   **Collections**:
@@ -61,14 +84,44 @@ This application is configured to use a local MongoDB instance running in Docker
     -   comments
     -   connections
 
+### Redis
+-   **Connection String**: `redis://localhost:6379`
+-   **Used for**:
+    -   User profile caching (TTL: 1 hour)
+    -   Friend list caching (TTL: 10 minutes)
+    -   Post caching (TTL: 5 minutes)
+
+## Redis Caching Test Page
+
+A test page is available to verify Redis caching functionality:
+
+1. Start the application: `npm run dev`
+2. Log in to your account
+3. Visit [http://localhost:3000/redis-test](http://localhost:3000/redis-test)
+4. Follow the instructions on the page to test Redis caching
+
 ## Troubleshooting
 
-If you encounter connection issues:
-
+### MongoDB Issues
 1. Make sure Docker is running on your machine
 2. Verify the MongoDB container is running: `docker ps`
 3. Check the MongoDB container logs: `docker logs mongodb`
-4. If needed, restart the MongoDB container: `npm run mongo:stop && npm run mongo:start`
+4. If needed, restart the MongoDB container: `npm run mongo:start`
+
+### Redis Issues
+1. Make sure Docker is running on your machine
+2. Verify the Redis container is running: `docker ps`
+3. Check the Redis container logs: `docker logs redis`
+4. If needed, restart the Redis container: `npm run redis:start`
+5. To check Redis connection manually:
+   ```
+   # Using redis-cli (if installed)
+   redis-cli ping
+
+   # Or using Docker
+   docker exec -it redis redis-cli ping
+   ```
+   Should return "PONG" if Redis is running correctly
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
