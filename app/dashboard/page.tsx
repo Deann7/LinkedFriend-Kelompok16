@@ -46,6 +46,18 @@ type EditModalState = {
   imageFile?: File | null;
 };
 
+interface Comment {
+  _id: string;
+  userId: {
+    firstName: string;
+    lastName: string;
+    _id: string;
+    image: string;
+  };
+  content: string;
+  createdAt: string;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -89,6 +101,10 @@ export default function Dashboard() {
   // Sorting related states
   const [sortBy, setSortBy] = useState<"date" | "likes">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  // Comments related states
+  const [newComments, setNewComments] = useState<{ [postId: string]: string }>({});
+  const [allComments, setAllComments] = useState<{ [postId: string]: Comment[] }>({});
+  const [showAllComments, setShowAllComments] = useState<{ [postId: string]: boolean }>({});
 
   useEffect(() => {
     // Check if user is logged in
@@ -164,6 +180,17 @@ export default function Dashboard() {
       fetchFeedPosts();
     }
   }, [sortBy, sortOrder]);
+
+  // Effect to fetch search results when search term changes
+  useEffect(() => {
+    if (activeTab === "feed" && posts.length > 0) {
+      posts.forEach((post) => {
+        if (!allComments[post._id]) {
+          fetchComments(post._id);
+        }
+      });
+    }
+  }, [posts, activeTab]);
 
   // Effect to handle clicks outside of notifications dropdown
   useEffect(() => {
@@ -692,6 +719,28 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  async function fetchComments(postId: string) {
+    const res = await fetch(`/api/comments/${postId}`);
+    const data = await res.json();
+    setAllComments((prev) => ({ ...prev, [postId]: data }));
+  }
+
+  async function postComment(postId: string, userId: string) {
+    const content = newComments[postId];
+    if (!content) return;
+
+    const res = await fetch("/api/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId, userId, content }),
+    });
+
+    if (res.ok) {
+      setNewComments((prev) => ({ ...prev, [postId]: "" }));
+      fetchComments(postId);
+    }
   }
 
   return (
@@ -1625,6 +1674,67 @@ export default function Dashboard() {
                           >
                             {post.content}
                           </div>
+                          {/* Comment Section */}
+                          <div className="mt-2">
+                            <h4 className="font-semibold">Comments</h4>
+                            {(allComments[post._id]?.slice(0, showAllComments[post._id] ? undefined : 3) || []).map((comment) => (
+                              <div key={comment._id} className="text-sm text-gray-700 mt-1">
+                                <div className="flex items-center gap-2">
+                                  {comment.userId?.image && (
+                                    <img
+                                      src={comment.userId.image}
+                                      alt="avatar"
+                                      className="w-6 h-6 rounded-full"
+                                    />
+                                  )}
+                                  <strong>
+                                    {comment.userId?.firstName
+                                      ? `${comment.userId.firstName} ${comment.userId.lastName}`
+                                      : "Unknown"}
+                                  </strong>
+                                </div>
+                                <div className="ml-8">{comment.content}</div>
+                              </div>
+                            ))}
+
+                            {/* Toggle button */}
+                            {allComments[post._id]?.length > 3 && (
+                              <button
+                                onClick={() =>
+                                  setShowAllComments((prev) => ({
+                                    ...prev,
+                                    [post._id]: !prev[post._id],
+                                  }))
+                                }
+                                className="text-sm text-blue-600 mt-2 hover:underline"
+                              >
+                                {showAllComments[post._id] ? "Hide comments" : "See more comments"}
+                              </button>
+                            )}
+
+                            {/* Input komentar */}
+                            <div className="flex gap-2 mt-3">
+                              <input
+                                type="text"
+                                value={newComments[post._id] || ""}
+                                onChange={(e) =>
+                                  setNewComments((prev) => ({
+                                    ...prev,
+                                    [post._id]: e.target.value,
+                                  }))
+                                }
+                                className="flex-1 border p-2 rounded"
+                                placeholder="Write a comment..."
+                              />
+                              <button
+                                onClick={() => postComment(post._id, user._id)}
+                                className="bg-blue-500 text-white px-3 py-1 rounded"
+                              >
+                                Send
+                              </button>
+                            </div>
+                          </div>
+
                           {post.image && (
                             <div className="mb-4 flex justify-center">
                               <img
