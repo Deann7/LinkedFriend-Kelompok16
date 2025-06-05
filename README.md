@@ -2,6 +2,14 @@
 
 A social networking application built with Next.js and MongoDB.
 
+## NoSQL Benchmark Research
+
+Before choosing the technologies used in this LinkedFriend Application, We conducted a benchmark and comparison of popular NoSQL databases, including MongoDB, Neo4j, and Redis.
+The results of this research helped guide the decision to use MongoDB as the primary database and Redis for caching.
+
+You can view the full benchmark project and its source code here:
+👉 [NoSQL_Benchmark GitHub Repository](https://github.com/Tianrider/NoSQL_Benchmark)
+
 ## Setup with Local MongoDB and Redis (Docker)
 
 This application is configured to use local MongoDB and Redis instances running in Docker.
